@@ -47,7 +47,7 @@ if __name__ == '__main__':
         msg = sys.argv[3]
         std_msg = f"@{sender}@: {msg}"
         if tp.lower() == 'send':
-            targets = sys.argv[3:]
+            targets = sys.argv[4:]
             send_message(std_msg, *targets)
             err = False
         elif tp.lower() == 'post':
