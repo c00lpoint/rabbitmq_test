@@ -1,14 +1,27 @@
 import pika
 import os
 import sys
+import re
+from time import sleep
 
 MQ_SERVER = os.environ.get('MQ_SERVER', default='localhost')
 MQ_AUTH_USER = os.environ.get('MQ_AUTH_USER', default='guest')
 MQ_AUTH_PASS = os.environ.get('MQ_AUTH_PASS', default='guest')
 
+WAITING_MESSAGE = '[*] Waiting for messages. To exit press CTRL+C'
+SENDER_HEADER_PATTERN_STR = r'^@\w+?@:\s*\[task\]'
+
 
 def callback(ch, method, properties, body):
-    print("[x] {}".format(body.decode()))
+    body_str = body.decode()
+    print(f"[x] {body.decode()}")
+    task_header = re.findall(SENDER_HEADER_PATTERN_STR, body_str, flags=re.IGNORECASE)
+    if task_header:
+        header_idx = len(task_header[0])
+        task_body = body_str[header_idx:].strip()
+        print(f'Start [{task_body}]')
+        sleep(1)
+        print(f'Done [{task_body}]')
 
 
 def create_cannel():
@@ -21,7 +34,9 @@ def create_cannel():
 def start_listing(listener):
     channel = create_cannel()
     channel.queue_declare(queue=listener)
-    _start_consuming(listener, channel)
+    channel.basic_consume(queue=listener, on_message_callback=callback, auto_ack=True)
+    print(WAITING_MESSAGE)
+    channel.start_consuming()
 
 
 def start_receiving(channel_id):
@@ -30,12 +45,8 @@ def start_receiving(channel_id):
     result = channel.queue_declare(queue='', exclusive=True)
     queue_name = result.method.queue
     channel.queue_bind(exchange=channel_id, queue=queue_name)
-    _start_consuming(queue_name, channel)
-
-
-def _start_consuming(queue_name, channel):
     channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
-    print('[*] Waiting for messages. To exit press CTRL+C')
+    print(WAITING_MESSAGE)
     channel.start_consuming()
 
 
