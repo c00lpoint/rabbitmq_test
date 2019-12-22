@@ -22,12 +22,19 @@ def _open_connection():
             connection.close()
 
 
-def send_message(message, *listeners):
+def send_message(message, task_mode, *listeners):
     with _open_connection() as conn:
         channel = conn.channel()
         for lname in listeners:
-            channel.queue_declare(queue=lname)
-            channel.basic_publish(exchange='', routing_key=lname, body=message)
+            if task_mode:
+                qname = f'{lname}_task'
+                channel.queue_declare(queue=qname, durable=True)
+                channel.basic_publish(exchange='', routing_key=qname, body=message, properties=pika.BasicProperties(
+                    delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE
+                ))
+            else:
+                channel.queue_declare(queue=lname)
+                channel.basic_publish(exchange='', routing_key=lname, body=message)
         print(f"[x] Sent '{message}' to {listeners}")
 
 
@@ -39,7 +46,17 @@ def broadcast_message(message, channel_id):
         print(f"[x] Broadcast f{message} to {channel_id}")
 
 
+def sample_test(count, listener):
+    for i in range(10):
+        send_message(f'@developer@: sample task {i+1}', True, 'tester')
+
+
 if __name__ == '__main__':
+    if sys.argv[1] == 'sample_test':
+        count = int(sys.argv[2])
+        targets = sys.argv[3:]
+        sample_test(count, *targets)
+        sys.exit()
     err = True
     if len(sys.argv) > 4:
         sender = sys.argv[1]
@@ -48,7 +65,11 @@ if __name__ == '__main__':
         std_msg = f"@{sender}@: {msg}"
         if tp.lower() == 'send':
             targets = sys.argv[4:]
-            send_message(std_msg, *targets)
+            send_message(std_msg, False, *targets)
+            err = False
+        elif tp.lower() == 'send_task':
+            targets = sys.argv[4:]
+            send_message(std_msg, True, *targets)
             err = False
         elif tp.lower() == 'post':
             target = sys.argv[4]
