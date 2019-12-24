@@ -46,17 +46,21 @@ def broadcast_message(message, channel_id):
         print(f"[x] Broadcast f{message} to {channel_id}")
 
 
-def sample_test(count, listener):
+def sample_test(count, task_mode, listener):
     for i in range(10):
-        send_message(f'@developer@: sample task {i+1}', True, 'tester')
+        task_idx = i + 1
+        working_cost = 1 if task_idx % 2 == 1 else 10
+        send_message(f'@developer@: sample task {task_idx} +{working_cost}', task_mode, 'tester')
 
 
 if __name__ == '__main__':
     if sys.argv[1] == 'sample_test':
-        count = int(sys.argv[2])
-        targets = sys.argv[3:]
-        sample_test(count, *targets)
-        sys.exit()
+        if len(sys.argv) > 4:
+            count = int(sys.argv[2])
+            task_mode = True if sys.argv[3] == '1' else False
+            targets = sys.argv[4:]
+            sample_test(count, task_mode, *targets)
+            sys.exit()
     err = True
     if len(sys.argv) > 4:
         sender = sys.argv[1]

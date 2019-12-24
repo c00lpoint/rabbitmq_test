@@ -1,6 +1,7 @@
 import pika
 import os
 import sys
+import re
 from time import sleep
 
 MQ_SERVER = os.environ.get('MQ_SERVER', default='localhost')
@@ -17,8 +18,12 @@ def callback(ch, method, properties, body):
 
 def callback_task(ch, method, properties, body):
     body_str = body.decode()
+    working_spend = 5
+    results = re.findall(r'\+\d+$', body_str)
+    if results:
+        working_spend = int(results[0])
     print(f'Start [{body_str}]')
-    sleep(10)
+    sleep(working_spend)
     print(f'Done [{body_str}]')
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -33,6 +38,7 @@ def create_channel():
 def start_listing(listener, is_task_mode=False):
     channel = create_channel()
     if is_task_mode:
+        channel.basic_qos(prefetch_count=1)
         qname = f'{listener}_task'
         channel.queue_declare(queue=qname, durable=True)
         channel.basic_consume(queue=qname, on_message_callback=callback_task)
